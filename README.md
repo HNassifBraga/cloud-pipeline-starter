@@ -1,9 +1,15 @@
 # Cloud Tasks API — Projeto Final de Computação em Nuvem
 
+**Integrante:** Henrique Nassif Braga (trabalho individual — responsável por todas as etapas: código, testes, CI/CD, infraestrutura AWS e documentação).
+
+Relatório do projeto: [docs/RELATORIO.md](docs/RELATORIO.md).
+
 Aplicação Flask/SQLite preparada para um laboratório de **CI/CD com GitHub Actions, Docker, GHCR e AWS EC2**. A base contém código, testes e workflows; cabe ao grupo aprovisionar a nuvem, configurar segredos, usar branches/PRs, implementar uma evolução funcional e comprovar a esteira.
 
 ## Arquitetura
-`Branch/PR -> CI (pytest + Docker build) -> merge main -> CI (publicação GHCR por SHA) -> CD (SSH EC2 + docker pull/run) -> /health`
+`Branch/PR -> CI (pytest + Docker build) -> merge main -> CI (publicação GHCR por SHA) -> CD (runner self-hosted na EC2 + docker pull/run) -> /health`
+
+O CD roda em um **GitHub Actions self-hosted runner instalado na própria EC2**. O runner abre conexão de saída (HTTPS) para o GitHub, então não é preciso liberar SSH para os IPs variáveis dos runners hospedados: a porta 22 fica restrita, e nenhuma chave SSH é guardada em secrets.
 
 ## Rodar localmente
 ```bash
@@ -22,13 +28,19 @@ Ou execute `docker compose up --build` e abra `http://localhost:8080/health`.
 | GET | `/health` | Saúde da aplicação/banco |
 | GET | `/tasks` | Lista tarefas |
 | POST | `/tasks` | Cria tarefa (`{"title":"..."}`) |
+| GET | `/version` | Versão (SHA do commit) da imagem em execução |
+| GET | `/tasks?done=true\|false` | Filtra tarefas por situação (400 para valor inválido) |
 | PATCH | `/tasks/<id>` | Atualiza conclusão (`{"done":true}`) |
+| DELETE | `/tasks/<id>` | Exclui tarefa (204; 404 se não existir) |
 
 Exemplos:
 ```bash
 curl http://localhost:8080/health
 curl -X POST http://localhost:8080/tasks -H 'Content-Type: application/json' -d '{"title":"Minha tarefa"}'
 curl http://localhost:8080/tasks
+curl "http://localhost:8080/tasks?done=false"
+curl -X DELETE -i http://localhost:8080/tasks/1
+curl http://localhost:8080/version
 ```
 
 ## Configuração AWS + GitHub
