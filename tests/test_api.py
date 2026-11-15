@@ -77,3 +77,9 @@ def test_version(tmp_path):
     result = app.test_client().get("/version")
     assert result.status_code == 200
     assert result.json["version"] == "abc123"
+
+
+def test_filter_is_case_insensitive(client):
+    item = client.post("/tasks", json={"title": "Maiuscula"}).json
+    client.patch(f'/tasks/{item["id"]}', json={"done": True})
+    assert [t["title"] for t in client.get("/tasks?done=TRUE").json] == ["Maiuscula"]
