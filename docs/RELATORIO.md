@@ -76,12 +76,12 @@ Saída: liberada (padrão), necessária para o runner falar com o GitHub e para 
 | Item | Link / evidência |
 |---|---|
 | Pull Request com review | https://github.com/HNassifBraga/cloud-pipeline-starter/pull/1 |
-| Run de CI aprovado no PR | _(colar link do run)_ |
-| Run de CI aprovado na `main` (publicação GHCR) | _(colar link do run)_ |
-| Run de CD aprovado | _(colar link do run)_ |
+| Run de CI aprovado no PR (sem publicar) | https://github.com/HNassifBraga/cloud-pipeline-starter/actions/runs/43658847562 |
+| Run de CI aprovado na `main` (publicação GHCR) | https://github.com/HNassifBraga/cloud-pipeline-starter/actions/runs/43659403549 (commit `d857f2b`) |
+| Run de CD aprovado | https://github.com/HNassifBraga/cloud-pipeline-starter/actions/runs/43659472942 |
 | Imagem no GHCR | https://github.com/HNassifBraga/cloud-pipeline-starter/pkgs/container/cloud-pipeline-starter |
 | `/health` público | `http://34.228.38.138/health` → `{"status":"ok"}` |
-| `/version` após o deploy | _(colar saída mostrando o SHA do merge)_ |
+| `/version` após o deploy | `{"service":"cloud-tasks-api","version":"d857f2b0a14109329a1afe35f2e35fede036d69f"}` |
 
 ### Persistência após recriar o contêiner
 Executado na EC2 (Session Manager, usuário `ubuntu`):
@@ -96,7 +96,18 @@ docker run -d --name cloud-tasks-api --restart unless-stopped -p 80:8000 \
 sleep 3 && curl -s http://localhost/tasks
 ```
 
-Resultado: _(colar saída; a tarefa continua listada porque o SQLite fica no volume `cloud-tasks-data`, não no contêiner)_. Os deploys automáticos também recriam o contêiner e preservam os dados pelo mesmo motivo.
+Resultado obtido (imagem `d857f2b`, implantada pelo CD):
+
+```text
+# antes de recriar
+[{"done":false,"id":1,"title":"Teste de persistencia"}]
+# docker rm -f cloud-tasks-api && docker run ... (novo contêiner 374299770c96)
+# depois de recriar
+[{"done":false,"id":1,"title":"Teste de persistencia"}]
+{"status":"ok"}
+```
+
+A tarefa continua listada porque o SQLite fica no volume `cloud-tasks-data`, não no contêiner. Os deploys automáticos também recriam o contêiner e preservam os dados pelo mesmo motivo.
 
 ## 6. Custos e recursos
 
@@ -123,4 +134,4 @@ Após a apresentação:
 3. Excluir o Security Group `cloud-tasks-api-sg`.
 4. Conferir em EC2 > Volumes e Elastic IPs que não restou nenhum recurso.
 
-Evidência do encerramento: _(colar print da instância "Terminated")_.
+O encerramento é feito depois da apresentação, seguindo os passos acima.
