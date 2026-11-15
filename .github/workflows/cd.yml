@@ -1,0 +1,45 @@
+name: CD - deploy EC2
+on:
+  workflow_run:
+    workflows: ["CI - tests and image"]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+  packages: read
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    # Only successful CI runs started by pushes to main.
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' }}
+    # Self-hosted runner installed on the EC2 instance itself:
+    # the runner opens an outbound HTTPS connection to GitHub, so no inbound
+    # SSH from GitHub-hosted runners is needed (SG keeps SSH restricted).
+    runs-on: [self-hosted, linux, x64, ec2-deploy]
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Authenticate to GHCR (short-lived job token)
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Deploy immutable image
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:${DEPLOY_SHA}"
+          bash scripts/deploy.sh "$IMAGE"
+      - name: Verify /health and /version
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          curl --fail --show-error --retry 10 --retry-delay 3 http://127.0.0.1/health
+          curl --fail --silent http://127.0.0.1/version | grep -q "$DEPLOY_SHA"
+          echo "Running version: $DEPLOY_SHA"
+      - name: Remove registry credentials
+        if: always()
+        run: docker logout ghcr.io || true
